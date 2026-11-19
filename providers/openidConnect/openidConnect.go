@@ -261,13 +261,7 @@ func (p *Provider) RefreshTokenAvailable() bool {
 
 // RefreshToken get new access token based on the refresh token
 func (p *Provider) RefreshToken(refreshToken string) (*oauth2.Token, error) {
-	token := &oauth2.Token{RefreshToken: refreshToken}
-	ts := p.config.TokenSource(oauth2.NoContext, token)
-	newToken, err := ts.Token()
-	if err != nil {
-		return nil, err
-	}
-	return newToken, err
+	return goth.RefreshAccessToken(p.config, p.Client(), refreshToken)
 }
 
 // The ID token is a fundamental part of the OpenID connect refresh token flow but is not part of the OAuth flow.

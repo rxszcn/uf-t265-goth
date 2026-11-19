@@ -151,13 +151,7 @@ func (p Provider) Client() *http.Client {
 }
 
 func (p Provider) RefreshToken(refreshToken string) (*oauth2.Token, error) {
-	token := &oauth2.Token{RefreshToken: refreshToken}
-	ts := p.config.TokenSource(goth.ContextForClient(p.Client()), token)
-	newToken, err := ts.Token()
-	if err != nil {
-		return nil, err
-	}
-	return newToken, err
+	return goth.RefreshAccessToken(p.config, p.Client(), refreshToken)
 }
 
 func (Provider) RefreshTokenAvailable() bool {

@@ -126,10 +126,7 @@ func (p *Provider) Debug(debug bool) {}
 
 // RefreshToken refresh token is not provided by mailru.
 func (p *Provider) RefreshToken(refreshToken string) (*oauth2.Token, error) {
-	t := &oauth2.Token{RefreshToken: refreshToken}
-	ts := p.oauthConfig.TokenSource(goth.ContextForClient(p.Client()), t)
-
-	return ts.Token()
+	return goth.RefreshAccessToken(p.oauthConfig, p.Client(), refreshToken)
 }
 
 // RefreshTokenAvailable refresh token is not provided by mailru

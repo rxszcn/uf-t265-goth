@@ -123,13 +123,7 @@ func (p *Provider) RefreshToken(refreshToken string) (*oauth2.Token, error) {
 		return nil, fmt.Errorf("No refresh token provided")
 	}
 
-	token := &oauth2.Token{RefreshToken: refreshToken}
-	ts := p.config.TokenSource(goth.ContextForClient(p.Client()), token)
-	newToken, err := ts.Token()
-	if err != nil {
-		return nil, err
-	}
-	return newToken, err
+	return goth.RefreshAccessToken(p.config, p.Client(), refreshToken)
 }
 
 func newConfig(provider *Provider, scopes []string) *oauth2.Config {

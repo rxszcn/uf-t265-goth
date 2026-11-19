@@ -1,8 +1,11 @@
 package github_test
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
+	"sync/atomic"
 	"testing"
 
 	"github.com/markbates/goth"
@@ -70,4 +73,36 @@ func githubProvider() *github.Provider {
 
 func urlCustomisedURLProvider() *github.Provider {
 	return github.NewCustomisedURL(os.Getenv("GITHUB_KEY"), os.Getenv("GITHUB_SECRET"), "/foo", "http://authURL", "http://tokenURL", "http://profileURL", "http://emailURL")
+}
+
+// rejectedRoundTripper counts requests and refuses them. Nothing may travel
+// through it: a provider without a refresh endpoint must stay offline.
+type rejectedRoundTripper struct {
+	count int32
+}
+
+func (r *rejectedRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	atomic.AddInt32(&r.count, 1)
+	return nil, errors.New("no refresh request is expected")
+}
+
+func swapDefaultClient(counter *rejectedRoundTripper) func() {
+	original := http.DefaultClient
+	http.DefaultClient = &http.Client{Transport: counter}
+	return func() { http.DefaultClient = original }
+}
+
+func Test_RefreshTokenUnsupported(t *testing.T) {
+	a := assert.New(t)
+
+	counter := &rejectedRoundTripper{}
+	defer swapDefaultClient(counter)()
+
+	p := githubProvider()
+
+	token, err := p.RefreshToken("some-refresh-token")
+
+	a.EqualError(err, "Refresh token is not provided by github")
+	a.Nil(token)
+	a.Equal(int32(0), atomic.LoadInt32(&counter.count), "an unsupported refresh must not reach the network")
 }

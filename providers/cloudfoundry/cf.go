@@ -4,7 +4,6 @@ package cloudfoundry
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -165,12 +164,5 @@ func (p *Provider) RefreshTokenAvailable() bool {
 
 // RefreshToken get new access token based on the refresh token
 func (p *Provider) RefreshToken(refreshToken string) (*oauth2.Token, error) {
-	token := &oauth2.Token{RefreshToken: refreshToken}
-	ctx := context.WithValue(goth.ContextForClient(p.Client()), oauth2.HTTPClient, goth.HTTPClientWithFallBack(p.Client()))
-	ts := p.config.TokenSource(ctx, token)
-	newToken, err := ts.Token()
-	if err != nil {
-		return nil, err
-	}
-	return newToken, err
+	return goth.RefreshAccessToken(p.config, p.Client(), refreshToken)
 }

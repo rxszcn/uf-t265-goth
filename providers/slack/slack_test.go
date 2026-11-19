@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 
 	"github.com/markbates/goth"
@@ -233,4 +235,36 @@ func withMockServer(p *slack.Provider, handler http.Handler, fn func(p *slack.Pr
 	p.HTTPClient = httpClient
 
 	fn(p)
+}
+
+// rejectedRoundTripper counts requests and refuses them. Nothing may travel
+// through it: a provider without a refresh endpoint must stay offline.
+type rejectedRoundTripper struct {
+	count int32
+}
+
+func (r *rejectedRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	atomic.AddInt32(&r.count, 1)
+	return nil, errors.New("no refresh request is expected")
+}
+
+func swapDefaultClient(counter *rejectedRoundTripper) func() {
+	original := http.DefaultClient
+	http.DefaultClient = &http.Client{Transport: counter}
+	return func() { http.DefaultClient = original }
+}
+
+func Test_RefreshTokenIssuesNoRequest(t *testing.T) {
+	a := assert.New(t)
+
+	counter := &rejectedRoundTripper{}
+	defer swapDefaultClient(counter)()
+
+	p := provider()
+
+	token, err := p.RefreshToken("some-refresh-token")
+
+	a.NoError(err)
+	a.Nil(token)
+	a.Equal(int32(0), atomic.LoadInt32(&counter.count), "a provider without a refresh endpoint must not reach the network")
 }
